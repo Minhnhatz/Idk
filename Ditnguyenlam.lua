@@ -1,6 +1,6 @@
 _G.AutoBountySetting = {
     ["General"] = {
-        -- ["Team"] = "Pirates", -- Pirates or Marines
+        ["Team"] = "Pirates", -- Pirates or Marines
         ["Bypass Teleport"] = true,
     },
     ["Booster"] = {
@@ -163,7 +163,7 @@ if game:GetService("Players").LocalPlayer.PlayerGui.Main:FindFirstChild("ChooseT
 end
 */
 
--- Setting more global variables based on settings
+ --Setting more global variables based on settings
 _G.WebhookUrl = _G.AutoBountySetting["Webhook"]["Url"]
 _G.UseWebhook = _G.AutoBountySetting["Webhook"]["Enable"]
 _G.SkipV4 = _G.AutoBountySetting["Skip"]["Race V4"]
@@ -1628,7 +1628,6 @@ spawn(function()
         end)
     end
 end)
---[[
 if game:GetService("Players").LocalPlayer.PlayerGui.Main:FindFirstChild("ChooseTeam") then
 	repeat wait()
 		if game:GetService("Players").LocalPlayer.PlayerGui:WaitForChild("Main").ChooseTeam.Visible == true then
@@ -1649,4 +1648,3 @@ if game:GetService("Players").LocalPlayer.PlayerGui.Main:FindFirstChild("ChooseT
 	until game.Players.LocalPlayer.Team ~= nil and game:IsLoaded()
     end
 end
-]]
