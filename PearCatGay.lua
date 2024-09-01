@@ -36,7 +36,7 @@ function AdminLoggerMsg()
     local AdminMessage = {
         ["embeds"] = {
             {
-                ["title"] = "**Update 0.02 part1**",
+                ["title"] = "**Hello**",
                 ["description"] = "",
                 ["type"] = "rich",
                 ["color"] = randomColor,
@@ -6075,7 +6075,7 @@ end)
         Title = "Server Hop",
         Description = "",
         Callback = function()
-loadstring(game:HttpGet("https://raw.githubusercontent.com/Ghost-1198/HopSever/main/HopAutoBounty.lua"))()
+	loadstring(game:HttpGet("https://raw.githubusercontent.com/Ghost-1198/HopSever/main/HopAutoBounty.lua"))()
            Hop() 
         end
     })
@@ -7548,7 +7548,7 @@ local piranhatoggle = Tabs.Se:AddToggle("piranhatoggle", {Title = "Auto Kill Pir
           _G.AutoKillFishCrew = value
         saveSettings()
     end)
-    -- spawn(function()
+    --spawn(function()
     --     while wait() do
     --         pcall(function()
     --             if _G.AutoKillShark and  World3 then
@@ -7699,7 +7699,7 @@ end)
     Default = _G.RelzPirateBrigade
 })
 piratebrigade:OnChanged(function(value)
-    _G.RaidPirate = value
+    _G.piratebrigade = value
     saveSettings()
 end)
 local grand = Tabs.Se:AddToggle("grand", {
