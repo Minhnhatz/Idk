@@ -1,7 +1,7 @@
 repeat
     wait()
 until game:IsLoaded()
-elseif game.PlaceId == 2753915549 then
+if game.PlaceId == 2753915549 then
     World1 = true
 elseif game.PlaceId == 4442272183 then
     World2 = true
@@ -11,9 +11,9 @@ end
 game.StarterGui:SetCore(
     "SendNotification",
     {
-        Title = "Pear Cat Hub",
-        Text = "Loading",
-        Duration = 5
+      Title = "Pear Cat Hub",
+      Text = "Loading",
+      Duration = 5
     })
 ------------------------------------------------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------------------------------------------------
