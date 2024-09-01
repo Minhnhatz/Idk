@@ -1997,66 +1997,21 @@ print("Saving Config")
 	end
 ------------------------------------------------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------------------------------------------------
-function TPB(CFgo)
-local tween_s = game:service"TweenService"
-local info = TweenInfo.new((game:GetService("Workspace").Boats.PirateBrigade.VehicleSeat.CFrame.Position - CFgo.Position).Magnitude/300, Enum.EasingStyle.Linear)
-tween = tween_s:Create(game:GetService("Workspace").Boats.PirateBrigade.VehicleSeat, info, {CFrame = CFgo})
-tween:Play()
-
-local tweenfunc = {}
-
-function tweenfunc:Stop()
-    tween:Cancel()
-end
-
-return tweenfunc
-end
-
-function TPP(CFgo)
-if game.Players.LocalPlayer.Character:WaitForChild("Humanoid").Health <= 0 or not game:GetService("Players").LocalPlayer.Character:WaitForChild("Humanoid") then tween:Cancel() repeat wait() until game:GetService("Players").LocalPlayer.Character:WaitForChild("Humanoid") and game:GetService("Players").LocalPlayer.Character:WaitForChild("Humanoid").Health > 0 wait(7) return end
-local tween_s = game:service"TweenService"
-local info = TweenInfo.new((game:GetService("Players")["LocalPlayer"].Character.HumanoidRootPart.Position - CFgo.Position).Magnitude/325, Enum.EasingStyle.Linear)
-tween = tween_s:Create(game.Players.LocalPlayer.Character["HumanoidRootPart"], info, {CFrame = CFgo})
-tween:Play()
-
-local tweenfunc = {}
-
-function tweenfunc:Stop()
-    tween:Cancel()
-end
-
-return tweenfunc
-end
-
-Type = 1
-spawn(function()
-while wait(.0) do
-    if Type == 1 then
-        Pos = CFrame.new(0,PosY,-30)
-    elseif Type == 2 then
-        Pos = CFrame.new(30,PosY,0)
-    elseif Type == 3 then
-        Pos = CFrame.new(0,PosY,30)	
-    elseif Type == 4 then
-        Pos = CFrame.new(-30,PosY,0)
+local function TPB(pos, boat)
+    local tween_s = game:GetService("TweenService")
+    local info = TweenInfo.new((boat.CFrame.Position - pos.Position).Magnitude / getgenv().SpeedBoat, Enum.EasingStyle.Linear)
+    local tween = tween_s:Create(boat, info, {CFrame = pos})
+    local stopboat = {}
+    function stopboat:Stop()
+        tween:Cancel()
     end
+    if (boat.CFrame.Position - pos.Position).Magnitude <= 25 then
+        stopboat:Stop()
+    else
+        tween:Play()
     end
-end)
-
-spawn(function()
-while wait(.0) do
-    Type = 1
-    wait(0)
-    Type = 2
-    wait(0)
-    Type = 3
-    wait(0)
-    Type = 4
-    wait(0)
-    Type = 5
-    wait(0)
+    return stopboat
 end
-end)
 ------------------------------------------------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------------------------------------------------
 
