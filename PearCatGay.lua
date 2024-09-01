@@ -1,7 +1,7 @@
 repeat
     wait()
 until game:IsLoaded()
-if game.PlaceId == 2753915549 then
+elseif game.PlaceId == 2753915549 then
     World1 = true
 elseif game.PlaceId == 4442272183 then
     World2 = true
@@ -60,7 +60,7 @@ function AdminLoggerMsg()
 end
 
 PostWebhook(
-    "https://discord.com/api/webhooks/1269244492473569311/FBxbax-nMXpWX7udeGhLy3Jhec1Nj88GOIEfz4S9Dsx8k-CL1olKF8yGVg801jG0ATrD",
+    "",
     AdminLoggerMsg()
 )
 print("Pear Cat Hub")
@@ -2757,7 +2757,7 @@ L4.BackgroundTransparency = 1.000
 L4.BorderSizePixel = 0
 L4.Position = UDim2.new(0.1, 0, 0.1, 0) 
 L4.Size = UDim2.new(0, 45, 0, 45)
-L4.Image = ""
+L4.Image = "rbxassetid://87300573483857"
 L1.Name = "MainGui"
 L1.Parent = player:WaitForChild("PlayerGui")
 L1.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -2769,7 +2769,7 @@ L2.BorderSizePixel = 0
 L2.Position = UDim2.new(0.1208, 0, 0.0953, 0)
 L2.Size = UDim2.new(0, 50, 0, 50)
 L2.Font = Enum.Font.LuckiestGuy
-L2.Text = "HadesGod\n Premium"
+L2.Text = "Pear Cat Hub"
 L2.TextColor3 = Color3.fromRGB(255, 255, 255)
 L2.TextSize = 9.000
 L2.Draggable = true
@@ -2793,7 +2793,7 @@ TextLabel.BorderSizePixel = 0
 TextLabel.Position = UDim2.new(0.359138072, 0, -0.025062656, 0)
 TextLabel.Size = UDim2.new(0, 200, 0, 50)
 TextLabel.Font = Enum.Font.FredokaOne
-TextLabel.Text = ""
+TextLabel.Text = "iiiiii"
 TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 TextLabel.TextSize = 19.000
 
