@@ -797,7 +797,7 @@ HoverChange = 0.08,
     SubText = Color3.fromRGB(180, 160, 200),
     Hover = Color3.fromRGB(200, 100, 255),
     HoverChange = 0.09,
- },
+   },
 }
 
 local Library = {
