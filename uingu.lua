@@ -1,365 +1,450 @@
--- FluentWindUI Full + Demo
--- Paste vào LocalScript (StarterPlayerScripts hoặc StarterGui)
--- Tác giả: ChatGPT (tinh chỉnh cho bạn)
+-- FluentWindUI Pro - Full LocalScript
+-- Paste into StarterPlayerScripts or StarterGui (LocalScript)
+-- All-in-one: module + demo
 
--- ====== Dependencies/Services
+-- Services
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 
--- ====== Helper: create instance, tween, clamp
+-- Helpers
 local function create(class, props)
 	local inst = Instance.new(class)
 	if props then
 		for k,v in pairs(props) do
-			-- special-case Parent or AnchorPoint which are userdata
-			if k == "Parent" then
-				inst.Parent = v
-			elseif k == "AnchorPoint" then
-				inst.AnchorPoint = v
-			else
-				inst[k] = v
-			end
+			-- special handling for Parent and AnchorPoint
+			if k == "Parent" then inst.Parent = v
+			elseif k == "AnchorPoint" then inst.AnchorPoint = v
+			else inst[k] = v end
 		end
 	end
 	return inst
 end
 
-local function doTween(obj, props, time, style, dir)
-	return TweenService:Create(obj, TweenInfo.new(time or 0.22, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out), props)
+local function tweenPlay(obj, props, time, style, dir)
+	local tween = TweenService:Create(obj, TweenInfo.new(time or 0.22, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out), props)
+	tween:Play()
+	return tween
 end
 
 local function clamp(n, a, b) return math.max(a, math.min(b, n)) end
+local function lerpColor(a,b,t) return Color3.new(a.R + (b.R-a.R)*t, a.G + (b.G-a.G)*t, a.B + (b.B-a.B)*t) end
 
--- ====== FluentWindUI Module (inline)
+-- Default theme
+local DefaultTheme = {
+	Background = Color3.fromRGB(18,18,20),
+	Secondary  = Color3.fromRGB(34,34,40),
+	Primary    = Color3.fromRGB(0,132,255),
+	Accent     = Color3.fromRGB(255,170,0),
+	Text       = Color3.fromRGB(240,240,245)
+}
+
+-- Notify system (auto fade)
+local function CreateNotify(guiParent, text, duration)
+	duration = duration or 3
+	local container = guiParent:FindFirstChild("FW_NotifyContainer") or create("Frame", {
+		Name = "FW_NotifyContainer",
+		Parent = guiParent,
+		Size = UDim2.new(0, 340, 0, 200),
+		Position = UDim2.new(1, -360, 1, -24),
+		AnchorPoint = Vector2.new(0,1),
+		BackgroundTransparency = 1,
+		ZIndex = 999
+	})
+	container.Parent = guiParent
+
+	local notif = create("Frame", {
+		Parent = container,
+		Size = UDim2.new(1,0,0,48),
+		BackgroundColor3 = DefaultTheme.Secondary,
+		BorderSizePixel = 0,
+		ClipsDescendants = true
+	})
+	create("UICorner", {Parent = notif, CornerRadius = UDim.new(0,10)})
+	local lbl = create("TextLabel", {
+		Parent = notif,
+		Size = UDim2.new(1,-20,1,0),
+		Position = UDim2.new(0,10,0,0),
+		BackgroundTransparency = 1,
+		Text = text,
+		TextWrapped = true,
+		TextColor3 = DefaultTheme.Text,
+		Font = Enum.Font.GothamSemibold,
+		TextSize = 14,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		AutoLocalize = false
+	})
+	notif.AnchorPoint = Vector2.new(0,0)
+
+	-- appear
+	notif.Position = UDim2.new(0, 0, 1, 60)
+	tweenPlay(notif, {Position = UDim2.new(0, 0, 1, -52), BackgroundTransparency = 0}, 0.32)
+	task.delay(duration, function()
+		tweenPlay(notif, {Position = UDim2.new(0, 0, 1, 60), BackgroundTransparency = 1}, 0.28)
+		task.delay(0.32, function() notif:Destroy() end)
+	end)
+	return notif
+end
+
+-- Main UI Framework (inline)
 local FluentWindUI = {}
 FluentWindUI.__index = FluentWindUI
 
-local defaultTheme = {
-	Primary = Color3.fromRGB(0, 132, 255),
-	Accent  = Color3.fromRGB(255, 170, 0),
-	Background = Color3.fromRGB(25,25,25),
-	Secondary  = Color3.fromRGB(40,40,40),
-	Text = Color3.fromRGB(240,240,240)
-}
-
 function FluentWindUI:CreateWindow(opts)
 	opts = opts or {}
-	local Title = opts.Title or "FluentWindUI"
-	local Size  = opts.Size or UDim2.new(0, 700, 0, 460)
-	local MinSize = opts.MinSize or Vector2.new(360,240)
-	local Theme = opts.Theme or defaultTheme
+	local title = opts.Title or "FluentWindUI Pro"
+	local size = opts.Size or UDim2.new(0, 820, 0, 520)
+	local minSize = opts.MinSize or Vector2.new(360,240)
+	local theme = opts.Theme or DefaultTheme
 
 	-- ScreenGui
-	local screenGui = create("ScreenGui", {Parent = player:WaitForChild("PlayerGui"), ResetOnSpawn = false, IgnoreGuiInset = true})
-	screenGui.Name = opts.GuiName or "FluentWindUI_Screen"
+	local screen = create("ScreenGui", {Parent = player:WaitForChild("PlayerGui"), ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling})
+	screen.Name = "FluentWindUI_Pro"
+	screen.IgnoreGuiInset = true
 
-	-- Main frame
-	local Main = create("Frame", {
-		Parent = screenGui,
-		Size = Size,
-		Position = UDim2.new(0.5, -Size.X.Offset/2, 0.5, -Size.Y.Offset/2),
-		BackgroundColor3 = Theme.Background,
+	-- Main window
+	local main = create("Frame", {
+		Parent = screen,
+		Size = size,
+		Position = UDim2.new(0.5, -size.X.Offset/2, 0.5, -size.Y.Offset/2),
+		BackgroundColor3 = theme.Background,
 		BorderSizePixel = 0,
-		ClipsDescendants = true,
-		Active = true
+		Active = true,
+		ClipsDescendants = true
 	})
-	create("UICorner", {Parent = Main, CornerRadius = UDim.new(0, 18)})
+	create("UICorner", {Parent = main, CornerRadius = UDim.new(0, 18)})
 
-	-- Shadow (soft)
-	local shadow = create("ImageLabel", {
-		Parent = Main,
-		Size = UDim2.new(1,40,1,40),
-		Position = UDim2.new(0.5,0,0.5,0),
+	-- Dual shadow layers to look Fluent-like
+	local shadowOuter = create("ImageLabel", {
+		Parent = main,
+		Size = UDim2.new(1, 60, 1, 60),
+		Position = UDim2.new(0.5, 0, 0.5, 0),
 		AnchorPoint = Vector2.new(0.5,0.5),
 		BackgroundTransparency = 1,
 		Image = "rbxassetid://5028857084",
-		ImageTransparency = 0.6,
+		ImageTransparency = 0.65,
 		ScaleType = Enum.ScaleType.Slice,
 		SliceCenter = Rect.new(24,24,276,276),
 		ZIndex = 0
 	})
+	local shadowInner = create("ImageLabel", {
+		Parent = main,
+		Size = UDim2.new(1, 20, 1, 20),
+		Position = UDim2.new(0.5, 0, 0.5, 0),
+		AnchorPoint = Vector2.new(0.5,0.5),
+		BackgroundTransparency = 1,
+		Image = "rbxassetid://1316045217", -- soft glass texture
+		ImageTransparency = 0.9,
+		ScaleType = Enum.ScaleType.Slice,
+		SliceCenter = Rect.new(10,10,118,118),
+		ZIndex = 1
+	})
 
-	-- Header
-	local Header = create("Frame", {Parent = Main, Size = UDim2.new(1,0,0,46), BackgroundColor3 = Theme.Secondary, BorderSizePixel = 0})
-	create("UICorner", {Parent = Header, CornerRadius = UDim.new(0,18)})
-	local TitleLabel = create("TextLabel", {
-		Parent = Header,
-		Size = UDim2.new(1, -160, 1, 0),
+	-- Titlebar
+	local header = create("Frame", {
+		Parent = main,
+		Size = UDim2.new(1, 0, 0, 52),
+		BackgroundColor3 = theme.Secondary,
+		BorderSizePixel = 0
+	})
+	create("UICorner", {Parent = header, CornerRadius = UDim.new(0, 18)})
+	local titleLbl = create("TextLabel", {
+		Parent = header,
+		Size = UDim2.new(1, -220, 1, 0),
 		Position = UDim2.new(0, 18, 0, 0),
 		BackgroundTransparency = 1,
-		Text = "  " .. Title,
+		Text = "  " .. title,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Font = Enum.Font.GothamBold,
 		TextSize = 18,
-		TextColor3 = Theme.Text
+		TextColor3 = theme.Text
 	})
 
-	-- Control buttons
-	local btnClose = create("TextButton", {Parent = Header, Size = UDim2.new(0, 34, 0, 30), Position = UDim2.new(1, -48, 0.5, -15), BackgroundTransparency = 1, Text = "✕", Font = Enum.Font.GothamBold, TextSize = 18, TextColor3 = Color3.fromRGB(255,80,80)})
-	local btnMax = create("TextButton", {Parent = Header, Size = UDim2.new(0, 34, 0, 30), Position = UDim2.new(1, -92, 0.5, -15), BackgroundTransparency = 1, Text = "⬜", Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = Theme.Text})
-	local btnMin = create("TextButton", {Parent = Header, Size = UDim2.new(0, 34, 0, 30), Position = UDim2.new(1, -136, 0.5, -15), BackgroundTransparency = 1, Text = "—", Font = Enum.Font.GothamBold, TextSize = 18, TextColor3 = Theme.Text})
+	-- Control buttons: theme icon, minimize, maximize, close
+	local controlContainer = create("Frame", {Parent = header, Size = UDim2.new(0, 200, 1, 0), Position = UDim2.new(1, -220, 0, 0), BackgroundTransparency = 1})
+	local btnTheme = create("TextButton", {Parent = controlContainer, Size = UDim2.new(0, 36, 0, 36), Position = UDim2.new(0, 8, 0.5, -18), BackgroundTransparency = 1, Text = "🎨", Font = Enum.Font.GothamBold, TextSize = 18, TextColor3 = theme.Text})
+	local btnMin = create("TextButton", {Parent = controlContainer, Size = UDim2.new(0, 36, 0, 36), Position = UDim2.new(0, 56, 0.5, -18), BackgroundTransparency = 1, Text = "—", Font = Enum.Font.GothamBold, TextSize = 18, TextColor3 = theme.Text})
+	local btnMax = create("TextButton", {Parent = controlContainer, Size = UDim2.new(0, 36, 0, 36), Position = UDim2.new(0, 104, 0.5, -18), BackgroundTransparency = 1, Text = "⬜", Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = theme.Text})
+	local btnClose = create("TextButton", {Parent = controlContainer, Size = UDim2.new(0, 36, 0, 36), Position = UDim2.new(0, 148, 0.5, -18), BackgroundTransparency = 1, Text = "✕", Font = Enum.Font.GothamBold, TextSize = 18, TextColor3 = Color3.fromRGB(255,80,80)})
 
-	-- Sidebar & Content
-	local Sidebar = create("Frame", {Parent = Main, Size = UDim2.new(0, 156, 1, -70), Position = UDim2.new(0, 12, 0, 62), BackgroundTransparency = 1})
-	create("UIListLayout", {Parent = Sidebar, Padding = UDim.new(0,10), SortOrder = Enum.SortOrder.LayoutOrder})
+	-- sidebar (left) for tabs
+	local sidebar = create("Frame", {Parent = main, Size = UDim2.new(0, 180, 1, -84), Position = UDim2.new(0, 12, 0, 72), BackgroundTransparency = 1})
+	create("UIListLayout", {Parent = sidebar, Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder})
 
-	local Content = create("Frame", {Parent = Main, Size = UDim2.new(1, -196, 1, -70), Position = UDim2.new(0, 176, 0, 62), BackgroundTransparency = 1})
-	local Pages = {}
+	-- content area
+	local content = create("Frame", {Parent = main, Size = UDim2.new(1, -216, 1, -84), Position = UDim2.new(0, 204, 0, 72), BackgroundTransparency = 1})
+	content.ClipsDescendants = true
 
-	-- Resize handle
-	local Resizer = create("Frame", {Parent = Main, Size = UDim2.new(0, 18, 0, 18), Position = UDim2.new(1, -20, 1, -20), BackgroundColor3 = Theme.Primary, BorderSizePixel = 0, Active = true})
-	create("UICorner", {Parent = Resizer, CornerRadius = UDim.new(0,4)})
-	Resizer.Name = "ResizerHandle"
+	-- resizer handle
+	local resizer = create("Frame", {Parent = main, Size = UDim2.new(0, 18, 0, 18), Position = UDim2.new(1, -22, 1, -22), BackgroundColor3 = theme.Primary, Active = true})
+	create("UICorner", {Parent = resizer, CornerRadius = UDim.new(0,4)})
 
-	-- apply theme function (live)
-	local function applyTheme(t)
-		if not t then return end
-		Theme = t
-		Main.BackgroundColor3 = t.Background
-		Header.BackgroundColor3 = t.Secondary
-		TitleLabel.TextColor3 = t.Text
-		Resizer.BackgroundColor3 = t.Primary
-		-- recolor Buttons in Sidebar
-		for _, child in ipairs(Sidebar:GetChildren()) do
-			if child:IsA("TextButton") then
-				child.TextColor3 = t.Text
-			end
-		end
-		-- recolor active page buttons
-		for _, p in ipairs(Pages) do
-			if p.Frame.Visible then
-				p.Button.BackgroundColor3 = t.Primary
-			else
-				p.Button.BackgroundColor3 = t.Secondary
-			end
-		end
-	end
+	-- underline indicator (top) for tab buttons (optional)
+	local underline = create("Frame", {Parent = header, Size = UDim2.new(0,0,0,4), Position = UDim2.new(0,0,1, -4), BackgroundColor3 = theme.Primary})
+	create("UICorner", {Parent = underline, CornerRadius = UDim.new(0,2)})
 
-	-- dragging
+	-- drag/resize logic
 	local dragging, dragStart, startPos
-	Header.InputBegan:Connect(function(input)
+	header.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
 			dragging = true
 			dragStart = input.Position
-			startPos = Main.Position
+			startPos = main.Position
 		end
 	end)
-	Header.InputEnded:Connect(function(input)
+	header.InputEnded:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
 	end)
 	UserInputService.InputChanged:Connect(function(input)
 		if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
 			local delta = input.Position - dragStart
-			Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+			main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
 		end
 	end)
 
-	-- resize
 	local resizing, resizeStart, startSize
-	Resizer.InputBegan:Connect(function(input)
+	resizer.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
 			resizing = true
 			resizeStart = input.Position
-			startSize = Main.AbsoluteSize
+			startSize = main.AbsoluteSize
 		end
 	end)
-	Resizer.InputEnded:Connect(function(input)
+	resizer.InputEnded:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then resizing = false end
 	end)
 	UserInputService.InputChanged:Connect(function(input)
 		if resizing and input.UserInputType == Enum.UserInputType.MouseMovement then
 			local delta = input.Position - resizeStart
-			local newW = math.max(MinSize.X, startSize.X + delta.X)
-			local newH = math.max(MinSize.Y, startSize.Y + delta.Y)
-			Main.Size = UDim2.new(0, newW, 0, newH)
+			local newW = math.max(minSize.X, startSize.X + delta.X)
+			local newH = math.max(minSize.Y, startSize.Y + delta.Y)
+			main.Size = UDim2.new(0, newW, 0, newH)
 		end
 	end)
 
-	-- maximize/restore
-	local maximized = false
-	local prevPos, prevSize
+	-- maximize / minimize / close behavior
+	local maximized, prevPos, prevSize = false, nil, nil
 	btnMax.MouseButton1Click:Connect(function()
 		if not maximized then
-			prevPos = Main.Position
-			prevSize = Main.Size
-			doTween(Main, {Position = UDim2.new(0, 12, 0, 12), Size = UDim2.new(1, -24, 1, -24)}, 0.28):Play()
+			prevPos, prevSize = main.Position, main.Size
+			tweenPlay(main, {Position = UDim2.new(0, 12, 0, 12), Size = UDim2.new(1, -24, 1, -24)}, 0.26)
 		else
-			doTween(Main, {Position = prevPos, Size = prevSize}, 0.28):Play()
+			tweenPlay(main, {Position = prevPos, Size = prevSize}, 0.26)
 		end
 		maximized = not maximized
 	end)
-
-	-- minimize
 	local minimized = false
 	btnMin.MouseButton1Click:Connect(function()
 		if not minimized then
-			doTween(Main, {Size = UDim2.new(Main.Size.X.Scale, Main.Size.X.Offset, 0, 54)}, 0.22):Play()
+			tweenPlay(main, {Size = UDim2.new(main.Size.X.Scale, main.Size.X.Offset, 0, 60)}, 0.22)
 		else
-			doTween(Main, {Size = Size}, 0.22):Play()
+			tweenPlay(main, {Size = size}, 0.22)
 		end
 		minimized = not minimized
 	end)
-
-	-- close
 	btnClose.MouseButton1Click:Connect(function()
-		doTween(Main, {Size = UDim2.new(0,0,0,0), BackgroundTransparency = 1}, 0.25):Play()
-		task.delay(0.26, function() screenGui:Destroy() end)
+		tweenPlay(main, {BackgroundTransparency = 1, Size = UDim2.new(0,0,0,0)}, 0.26)
+		task.delay(0.28, function() screen:Destroy() end)
 	end)
 
-	-- Window object (API)
-	local Window = {}
-	Window.ScreenGui = screenGui
-	Window.Main = Main
-	Window.Header = Header
-	Window.Sidebar = Sidebar
-	Window.Content = Content
-	Window.Pages = Pages
-	Window.Theme = Theme
-	Window.ApplyTheme = applyTheme
+	-- Theme editor trigger
+	btnTheme.MouseButton1Click:Connect(function()
+		-- open inline theme editor
+		local modal = create("Frame", {Parent = main, Size = UDim2.new(0, 380, 0, 220), Position = UDim2.new(0.5, -190, 0.5, -110), BackgroundColor3 = theme.Secondary, ZIndex = 120})
+		create("UICorner", {Parent = modal, CornerRadius = UDim.new(0,8)})
+		create("TextLabel", {Parent = modal, Size = UDim2.new(1,0,0,36), BackgroundTransparency = 1, Text = "🎨 Theme Editor", Font = Enum.Font.GothamBold, TextSize = 16, TextColor3 = theme.Text, TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.new(0,12,0,0)})
+		-- sliders for primary color
+		local function makeSlider(labelText, y, default)
+			create("TextLabel", {Parent = modal, Position = UDim2.new(0,12,0,y), Size = UDim2.new(0, 50, 0, 18), BackgroundTransparency = 1, Text = labelText, Font = Enum.Font.Gotham, TextSize = 12, TextColor3 = theme.Text})
+			local bar = create("Frame", {Parent = modal, Position = UDim2.new(0, 70, 0, y+4), Size = UDim2.new(0, 220, 0, 10), BackgroundColor3 = theme.Background})
+			create("UICorner", {Parent = bar, CornerRadius = UDim.new(0, 6)})
+			local fill = create("Frame", {Parent = bar, Size = UDim2.new(default/255,0,1,0), BackgroundColor3 = theme.Primary})
+			create("UICorner", {Parent = fill, CornerRadius = UDim.new(0, 6)})
+			local box = create("TextBox", {Parent = modal, Position = UDim2.new(0, 300, 0, y), Size = UDim2.new(0, 56, 0, 18), BackgroundColor3 = theme.Secondary, Text = tostring(default), Font = Enum.Font.Gotham, TextSize = 12, TextColor3 = theme.Text})
+			create("UICorner", {Parent = box, CornerRadius = UDim.new(0,6)})
+			local draggingS = false
+			bar.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then draggingS = true end end)
+			bar.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then draggingS = false end end)
+			UserInputService.InputChanged:Connect(function(i)
+				if draggingS and i.UserInputType == Enum.UserInputType.MouseMovement then
+					local rel = clamp((i.Position.X - bar.AbsolutePosition.X)/bar.AbsoluteSize.X, 0, 1)
+					fill.Size = UDim2.new(rel, 0, 1, 0)
+					box.Text = tostring(math.floor(rel*255))
+				end
+			end)
+			return {Bar = bar, Fill = fill, Box = box}
+		end
 
-	-- CreateTab method
-	function Window:CreateTab(name, icon)
-		icon = icon or ""
-		local btn = create("TextButton", {
-			Parent = Sidebar,
-			Size = UDim2.new(1, -12, 0, 44),
-			BackgroundColor3 = Theme.Secondary,
-			AutoButtonColor = false,
-			Text = (icon .. "   " .. name),
-			TextColor3 = Theme.Text,
-			Font = Enum.Font.GothamBold,
-			TextSize = 15
-		})
+		local sR = makeSlider("R", 48, math.floor(theme.Primary.R*255))
+		local sG = makeSlider("G", 80, math.floor(theme.Primary.G*255))
+		local sB = makeSlider("B", 112, math.floor(theme.Primary.B*255))
+
+		local applyBtn = create("TextButton", {Parent = modal, Size = UDim2.new(0, 110, 0, 34), Position = UDim2.new(1, -126, 1, -42), BackgroundColor3 = theme.Primary, Text = "Apply", Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = Color3.new(1,1,1)})
+		create("UICorner", {Parent = applyBtn, CornerRadius = UDim.new(0,6)})
+		applyBtn.MouseButton1Click:Connect(function()
+			local r = tonumber(sR.Box.Text) or math.floor(theme.Primary.R*255)
+			local g = tonumber(sG.Box.Text) or math.floor(theme.Primary.G*255)
+			local b = tonumber(sB.Box.Text) or math.floor(theme.Primary.B*255)
+			theme.Primary = Color3.fromRGB(clamp(math.floor(r),0,255), clamp(math.floor(g),0,255), clamp(math.floor(b),0,255))
+			-- apply live to main pieces
+			main.BackgroundColor3 = theme.Background
+			header.BackgroundColor3 = theme.Secondary
+			titleLbl.TextColor3 = theme.Text
+			resizer.BackgroundColor3 = theme.Primary
+			underline.BackgroundColor3 = theme.Primary
+			-- recolor sidebar buttons
+			for _,c in ipairs(sidebar:GetChildren()) do if c:IsA("TextButton") then c.TextColor3 = theme.Text end end
+			modal:Destroy()
+		end)
+		local closeX = create("TextButton", {Parent = modal, Size = UDim2.new(0, 28, 0, 28), Position = UDim2.new(1, -36, 0, 6), BackgroundTransparency = 1, Text = "✕", Font = Enum.Font.GothamBold, TextSize = 16, TextColor3 = theme.Text})
+		closeX.MouseButton1Click:Connect(function() modal:Destroy() end)
+	end)
+
+	-- Pages table + API for adding tabs & controls
+	local Pages = {}
+	local WindowAPI = {}
+
+	function WindowAPI:CreateTab(name, icon)
+		local btn = create("TextButton", {Parent = sidebar, Size = UDim2.new(1, -12, 0, 44), BackgroundColor3 = theme.Secondary, AutoButtonColor = false, Text = (icon and icon.."   " or "")..name, TextColor3 = theme.Text, Font = Enum.Font.GothamBold, TextSize = 15})
 		create("UICorner", {Parent = btn, CornerRadius = UDim.new(0,10)})
-		-- page
-		local page = create("ScrollingFrame", {Parent = Content, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, ScrollBarThickness = 6, Visible = (#Pages==0)})
-		create("UIListLayout", {Parent = page, Padding = UDim.new(0,12), SortOrder = Enum.SortOrder.LayoutOrder})
+		local page = create("ScrollingFrame", {Parent = content, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, ScrollBarThickness = 8, Visible = (#Pages==0)})
+		create("UIListLayout", {Parent = page, Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder})
 		page.CanvasSize = UDim2.new(0,0,0,0)
 		page.ChildAdded:Connect(function()
 			task.wait(0.03)
 			local layout = page:FindFirstChildOfClass("UIListLayout")
 			if layout then
-				page.CanvasSize = UDim2.new(0,0,0, layout.AbsoluteContentSize.Y + 16)
+				page.CanvasSize = UDim2.new(0,0,0, layout.AbsoluteContentSize.Y + 20)
 			end
 		end)
-		-- hover/select
-		btn.MouseEnter:Connect(function() doTween(btn, {BackgroundColor3 = Theme.Primary}, 0.12):Play() end)
+
+		-- hover + select behavior
+		btn.MouseEnter:Connect(function() tweenPlay(btn, {BackgroundColor3 = theme.Primary}, 0.12) end)
 		btn.MouseLeave:Connect(function()
 			if page.Visible then return end
-			doTween(btn, {BackgroundColor3 = Theme.Secondary}, 0.12):Play()
+			tweenPlay(btn, {BackgroundColor3 = theme.Secondary}, 0.12)
 		end)
 		btn.MouseButton1Click:Connect(function()
-			for _,p in ipairs(Pages) do
-				p.Frame.Visible = false
-				p.Button.BackgroundColor3 = Theme.Secondary
-			end
+			for _,p in ipairs(Pages) do p.Frame.Visible = false; p.Button.BackgroundColor3 = theme.Secondary end
 			page.Visible = true
-			btn.BackgroundColor3 = Theme.Primary
+			btn.BackgroundColor3 = theme.Primary
+			-- underline tween
+			local worldPos = btn.AbsolutePosition.X - header.AbsolutePosition.X
+			tweenPlay(underline, {Position = UDim2.new(0, btn.Position.X.Offset, 1, -4), Size = UDim2.new(0, btn.Size.X.Offset, 0, 4)}, 0.22)
 		end)
 
-		local tabObj = {Name = name, Button = btn, Frame = page, Elements = {}}
+		local tabObj = {Name = name, Button = btn, Frame = page}
 		table.insert(Pages, tabObj)
 
-		-- Methods for controls within tab
+		-- controls API
 		function tabObj:AddLabel(text)
-			local lbl = create("TextLabel", {Parent = page, Size = UDim2.new(1,-20,0,24), BackgroundTransparency = 1, Text = text, Font = Enum.Font.GothamBold, TextSize = 15, TextColor3 = Theme.Text, TextXAlignment = Enum.TextXAlignment.Left})
+			local lbl = create("TextLabel", {Parent = page, Size = UDim2.new(1, -24, 0, 26), BackgroundTransparency = 1, Text = text, TextColor3 = theme.Text, Font = Enum.Font.GothamSemibold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left})
 			return lbl
 		end
 
+		function tabObj:AddParagraph(title, body)
+			local wrapText = title .. "\n\n" .. body
+			local p = create("TextLabel", {Parent = page, Size = UDim2.new(1, -24, 0, 80), BackgroundTransparency = 1, Text = wrapText, TextWrapped = true, TextColor3 = theme.Text, Font = Enum.Font.Gotham, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top})
+			return p
+		end
+
 		function tabObj:AddButton(text, callback)
-			local b = create("TextButton", {Parent = page, Size = UDim2.new(0, 300, 0, 44), BackgroundColor3 = Theme.Primary, Text = text, Font = Enum.Font.GothamBold, TextSize = 15, TextColor3 = Color3.fromRGB(255,255,255)})
+			local b = create("TextButton", {Parent = page, Size = UDim2.new(0, 360, 0, 44), BackgroundColor3 = theme.Primary, Text = text, Font = Enum.Font.GothamBold, TextSize = 15, TextColor3 = Color3.fromRGB(255,255,255)})
 			create("UICorner", {Parent = b, CornerRadius = UDim.new(0,10)})
-			-- hover
-			b.MouseEnter:Connect(function() doTween(b, {Size = UDim2.new(0, 308, 0, 48)}, 0.12):Play() end)
-			b.MouseLeave:Connect(function() doTween(b, {Size = UDim2.new(0, 300, 0, 44)}, 0.12):Play() end)
+			-- hover scale + color
+			b.MouseEnter:Connect(function() tweenPlay(b, {Size = UDim2.new(0, 368, 0, 48)}, 0.12) end)
+			b.MouseLeave:Connect(function() tweenPlay(b, {Size = UDim2.new(0, 360, 0, 44)}, 0.12) end)
 			b.MouseButton1Click:Connect(function()
 				if callback then pcall(callback) end
-				doTween(b, {Size = UDim2.new(0, 292, 0, 40)}, 0.06):Play()
-				task.delay(0.06, function() doTween(b, {Size = UDim2.new(0, 300, 0, 44)}, 0.08):Play() end)
+				tweenPlay(b, {Size = UDim2.new(0, 352, 0, 40)}, 0.06)
+				task.delay(0.06, function() tweenPlay(b, {Size = UDim2.new(0, 360, 0, 44)}, 0.08) end)
 			end)
 			return b
 		end
 
 		function tabObj:AddToggle(text, default, callback)
-			local frame = create("Frame", {Parent = page, Size = UDim2.new(0, 360, 0, 44), BackgroundTransparency = 1})
-			local label = create("TextLabel", {Parent = frame, Size = UDim2.new(1, -80, 1, 0), BackgroundTransparency = 1, Text = text, Font = Enum.Font.Gotham, TextSize = 15, TextColor3 = Theme.Text, TextXAlignment = Enum.TextXAlignment.Left})
-			local box = create("Frame", {Parent = frame, Size = UDim2.new(0, 56, 0, 32), Position = UDim2.new(1, -64, 0.5, -16), BackgroundColor3 = Theme.Secondary})
+			local frame = create("Frame", {Parent = page, Size = UDim2.new(0, 420, 0, 44), BackgroundTransparency = 1})
+			local lbl = create("TextLabel", {Parent = frame, Size = UDim2.new(1, -120,1,0), BackgroundTransparency = 1, Text = text, TextColor3 = theme.Text, Font = Enum.Font.Gotham, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left})
+			local box = create("Frame", {Parent = frame, Size = UDim2.new(0, 60, 0, 32), Position = UDim2.new(1, -72, 0.5, -16), BackgroundColor3 = theme.Secondary})
 			create("UICorner", {Parent = box, CornerRadius = UDim.new(1,0)})
 			local thumb = create("Frame", {Parent = box, Size = UDim2.new(0, 28, 0, 28), Position = UDim2.new(0, 4, 0, 2), BackgroundColor3 = Color3.fromRGB(245,245,245)})
 			create("UICorner", {Parent = thumb, CornerRadius = UDim.new(1,0)})
 			local state = default or false
 			if state then
 				thumb.Position = UDim2.new(1, -32, 0, 2)
-				box.BackgroundColor3 = Theme.Primary
+				box.BackgroundColor3 = theme.Primary
 			end
-			box.InputBegan:Connect(function(input)
-				if input.UserInputType == Enum.UserInputType.MouseButton1 then
-					state = not state
-					if state then
-						doTween(thumb, {Position = UDim2.new(1, -32, 0, 2)}, 0.16):Play()
-						doTween(box, {BackgroundColor3 = Theme.Primary}, 0.16):Play()
-					else
-						doTween(thumb, {Position = UDim2.new(0, 4, 0, 2)}, 0.16):Play()
-						doTween(box, {BackgroundColor3 = Theme.Secondary}, 0.16):Play()
-					end
-					if callback then pcall(callback, state) end
+			box.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then
+				state = not state
+				if state then
+					tweenPlay(thumb, {Position = UDim2.new(1, -32, 0, 2)}, 0.16)
+					tweenPlay(box, {BackgroundColor3 = theme.Primary}, 0.16)
+				else
+					tweenPlay(thumb, {Position = UDim2.new(0, 4, 0, 2)}, 0.16)
+					tweenPlay(box, {BackgroundColor3 = theme.Secondary}, 0.16)
 				end
-			end)
+				if callback then pcall(callback, state) end
+			end end)
 			return {Frame = frame, Get = function() return state end}
 		end
 
-		function tabObj:AddSlider(text, min, max, default, callback)
+		function tabObj:AddSlider(labelText, min, max, default, callback)
 			min = min or 0; max = max or 100; default = default or min
 			local frame = create("Frame", {Parent = page, Size = UDim2.new(0, 420, 0, 56), BackgroundTransparency = 1})
-			local label = create("TextLabel", {Parent = frame, Size = UDim2.new(1, -12, 0, 18), BackgroundTransparency = 1, Text = text .. " : " .. tostring(default), Font = Enum.Font.Gotham, TextSize = 14, TextColor3 = Theme.Text, TextXAlignment = Enum.TextXAlignment.Left})
-			local bar = create("Frame", {Parent = frame, Size = UDim2.new(1, -12, 0, 10), Position = UDim2.new(0, 6, 0, 30), BackgroundColor3 = Theme.Secondary})
+			local lbl = create("TextLabel", {Parent = frame, Size = UDim2.new(1, -12, 0, 18), BackgroundTransparency = 1, Text = labelText .. " : " .. tostring(default), Font = Enum.Font.Gotham, TextSize = 14, TextColor3 = theme.Text, TextXAlignment = Enum.TextXAlignment.Left})
+			local bar = create("Frame", {Parent = frame, Size = UDim2.new(1, -12, 0, 10), Position = UDim2.new(0, 6, 0, 30), BackgroundColor3 = theme.Secondary})
 			create("UICorner", {Parent = bar, CornerRadius = UDim.new(0,6)})
-			local fill = create("Frame", {Parent = bar, Size = UDim2.new((default-min)/(max-min), 0, 1, 0), BackgroundColor3 = Theme.Primary})
+			local fill = create("Frame", {Parent = bar, Size = UDim2.new((default-min)/(max-min), 0, 1, 0), BackgroundColor3 = theme.Primary})
 			create("UICorner", {Parent = fill, CornerRadius = UDim.new(0,6)})
-			local dragging = false
-			bar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end end)
-			bar.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
-			UserInputService.InputChanged:Connect(function(input)
-				if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-					local rel = clamp((input.Position.X - bar.AbsolutePosition.X)/bar.AbsoluteSize.X, 0, 1)
-					fill.Size = UDim2.new(rel,0,1,0)
+
+			local draggingFill = false
+			bar.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then draggingFill = true end end)
+			bar.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then draggingFill = false end end)
+			local connection
+			connection = UserInputService.InputChanged:Connect(function(i)
+				if draggingFill and i.UserInputType == Enum.UserInputType.MouseMovement then
+					local rel = clamp((i.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
+					fill.Size = UDim2.new(rel, 0, 1, 0)
 					local val = math.floor(min + (max-min)*rel)
-					label.Text = text .. " : " .. tostring(val)
+					lbl.Text = labelText .. " : " .. tostring(val)
 					if callback then pcall(callback, val) end
 				end
 			end)
-			return {Frame = frame, Get = function() return min + (max-min)*fill.Size.X.Scale end}
+
+			return {Frame = frame, Get = function() return min + (max-min) * fill.Size.X.Scale end}
 		end
 
-		function tabObj:AddDropdown(text, items, callback)
-			local frame = create("Frame", {Parent = page, Size = UDim2.new(0, 360, 0, 36), BackgroundTransparency = 1})
-			local label = create("TextLabel", {Parent = frame, Size = UDim2.new(1, -36, 1, 0), BackgroundTransparency = 1, Text = text, Font = Enum.Font.Gotham, TextSize = 14, TextColor3 = Theme.Text, TextXAlignment = Enum.TextXAlignment.Left})
-			local btn = create("TextButton", {Parent = frame, Size = UDim2.new(0, 28, 0, 28), Position = UDim2.new(1, -34, 0.5, -14), Text = "⌄", BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextColor3 = Theme.Text})
-			local list = create("Frame", {Parent = page, Size = UDim2.new(0, 360, 0, 0), Position = UDim2.new(0, 20, 0, 0), BackgroundColor3 = Theme.Secondary, Visible = false})
+		function tabObj:AddDropdown(labelText, items, callback)
+			local frame = create("Frame", {Parent = page, Size = UDim2.new(0, 420, 0, 36), BackgroundTransparency = 1})
+			local label = create("TextLabel", {Parent = frame, Size = UDim2.new(1, -48, 1, 0), BackgroundTransparency = 1, Text = labelText, Font = Enum.Font.Gotham, TextSize = 14, TextColor3 = theme.Text, TextXAlignment = Enum.TextXAlignment.Left})
+			local btn = create("TextButton", {Parent = frame, Size = UDim2.new(0, 36, 0, 28), Position = UDim2.new(1, -44, 0.5, -14), Text = "⌄", BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextColor3 = theme.Text})
+			local list = create("Frame", {Parent = page, Size = UDim2.new(0, 420, 0, 0), Position = UDim2.new(0, 20, 0, 0), BackgroundColor3 = theme.Secondary, Visible = false})
 			create("UICorner", {Parent = list, CornerRadius = UDim.new(0,8)})
 			create("UIListLayout", {Parent = list, Padding = UDim.new(0,6), SortOrder = Enum.SortOrder.LayoutOrder})
+
 			for _,v in ipairs(items or {}) do
-				local it = create("TextButton", {Parent = list, Size = UDim2.new(1, -12, 0, 32), BackgroundColor3 = Theme.Secondary, Text = v, Font = Enum.Font.Gotham, TextSize = 14, TextColor3 = Theme.Text, AutoButtonColor = false})
-				create("UICorner", {Parent = it, CornerRadius = UDim.new(0,6)})
-				it.MouseEnter:Connect(function() doTween(it, {BackgroundColor3 = Theme.Primary}, 0.12):Play() end)
-				it.MouseLeave:Connect(function() doTween(it, {BackgroundColor3 = Theme.Secondary}, 0.12):Play() end)
-				it.MouseButton1Click:Connect(function()
-					label.Text = text .. " : " .. v
+				local itemBtn = create("TextButton", {Parent = list, Size = UDim2.new(1, -12, 0, 34), BackgroundColor3 = theme.Secondary, Text = v, Font = Enum.Font.Gotham, TextColor3 = theme.Text, TextSize = 14, AutoButtonColor = false})
+				create("UICorner", {Parent = itemBtn, CornerRadius = UDim.new(0,6)})
+				itemBtn.MouseEnter:Connect(function() tweenPlay(itemBtn, {BackgroundColor3 = theme.Primary}, 0.12) end)
+				itemBtn.MouseLeave:Connect(function() tweenPlay(itemBtn, {BackgroundColor3 = theme.Secondary}, 0.12) end)
+				itemBtn.MouseButton1Click:Connect(function()
+					label.Text = labelText .. " : " .. v
 					if callback then pcall(callback, v) end
-					doTween(list, {Size = UDim2.new(0,360,0,0)}, 0.16):Play()
+					tweenPlay(list, {Size = UDim2.new(0,420,0,0)}, 0.16)
 					task.delay(0.16, function() list.Visible = false end)
 				end)
 			end
+
 			btn.MouseButton1Click:Connect(function()
 				if not list.Visible then
 					list.Visible = true
 					local count = 0
 					for _,c in ipairs(list:GetChildren()) do if c:IsA("TextButton") then count = count + 1 end end
-					doTween(list, {Size = UDim2.new(0,360,0, count*38 + 8)}, 0.18):Play()
+					tweenPlay(list, {Size = UDim2.new(0,420,0,count*40 + 8)}, 0.18)
 				else
-					doTween(list, {Size = UDim2.new(0,360,0,0)}, 0.16):Play()
+					tweenPlay(list, {Size = UDim2.new(0,420,0,0)}, 0.16)
 					task.delay(0.16, function() list.Visible = false end)
 				end
 			end)
@@ -367,12 +452,28 @@ function FluentWindUI:CreateWindow(opts)
 		end
 
 		function tabObj:AddTextbox(placeholder, callback)
-			local box = create("TextBox", {Parent = page, Size = UDim2.new(0, 420, 0, 36), BackgroundColor3 = Theme.Secondary, Text = "", PlaceholderText = placeholder or "", Font = Enum.Font.Gotham, TextSize = 14, TextColor3 = Theme.Text})
-			create("UICorner", {Parent = box, CornerRadius = UDim.new(0,8)})
-			box.FocusLost:Connect(function(enter)
-				if enter and callback then pcall(callback, box.Text) end
-			end)
+			local box = create("TextBox", {Parent = page, Size = UDim2.new(0, 420, 0, 36), BackgroundColor3 = theme.Secondary, Text = "", PlaceholderText = placeholder or "", Font = Enum.Font.Gotham, TextSize = 14, TextColor3 = theme.Text})
+			create("UICorner", {Parent = box, CornerRadius = UDim.new(0,6)})
+			box.FocusLost:Connect(function(enter) if enter and callback then pcall(callback, box.Text) end end)
 			return box
+		end
+
+		function tabObj:AddColorPicker(labelText, defaultColor, callback)
+			local cbtn = create("TextButton", {Parent = page, Size = UDim2.new(0, 360, 0, 36), BackgroundColor3 = defaultColor or theme.Primary, Text = labelText, TextColor3 = theme.Text, Font = Enum.Font.Gotham, TextSize = 14})
+			create("UICorner", {Parent = cbtn, CornerRadius = UDim.new(0,6)})
+			cbtn.MouseButton1Click:Connect(function()
+				-- simple color pick: random sample for demo OR you can open slider modal
+				local newC = Color3.fromHSV(math.random(), 1, 1)
+				cbtn.BackgroundColor3 = newC
+				if callback then pcall(callback, newC) end
+			end)
+			return cbtn
+		end
+
+		function tabObj:AddParagraph(titleText, bodyText)
+			local h = create("TextLabel", {Parent = page, Size = UDim2.new(1,-24,0,22), BackgroundTransparency = 1, Text = titleText, Font = Enum.Font.GothamSemibold, TextSize = 14, TextColor3 = theme.Text, TextXAlignment = Enum.TextXAlignment.Left})
+			local p = create("TextLabel", {Parent = page, Size = UDim2.new(1,-24,0,96), BackgroundTransparency = 1, Text = bodyText, TextWrapped = true, Font = Enum.Font.Gotham, TextSize = 13, TextColor3 = theme.Text, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top})
+			return p
 		end
 
 		function tabObj:AddSpacer(px)
@@ -380,99 +481,63 @@ function FluentWindUI:CreateWindow(opts)
 			return s
 		end
 
-		function tabObj:AddCustom(inst)
-			inst.Parent = page
-			return inst
-		end
-
-		-- if it's first tab, mark selected
-		if #Pages == 1 then
-			btn.BackgroundColor3 = Theme.Primary
-		end
-
 		return tabObj
 	end
 
-	-- Theme editor (modal)
-	function Window:OpenThemeEditor()
-		local modal = create("Frame", {Parent = Main, Size = UDim2.new(0, 380, 0, 220), Position = UDim2.new(0.5, -190, 0.5, -110), BackgroundColor3 = Theme.Secondary, ZIndex = 50})
-		create("UICorner", {Parent = modal, CornerRadius = UDim.new(0,10)})
-		create("TextLabel", {Parent = modal, Size = UDim2.new(1,0,0,36), BackgroundTransparency = 1, Text = "🎨 Theme Editor", Font = Enum.Font.GothamBold, TextSize = 16, TextColor3 = Theme.Text, TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.new(0,12,0,0)})
-		-- sliders
-		local function newSlider(name, y, default)
-			local lbl = create("TextLabel", {Parent = modal, Size = UDim2.new(0, 52, 0, 18), Position = UDim2.new(0, 12, 0, y), BackgroundTransparency = 1, Text = name, Font = Enum.Font.Gotham, TextSize = 12, TextColor3 = Theme.Text})
-			local bar = create("Frame", {Parent = modal, Size = UDim2.new(0, 216, 0, 10), Position = UDim2.new(0, 74, 0, y+4), BackgroundColor3 = Theme.Background})
-			create("UICorner", {Parent = bar, CornerRadius = UDim.new(0,6)})
-			local fill = create("Frame", {Parent = bar, Size = UDim2.new(default/255, 0, 1, 0), BackgroundColor3 = Theme.Primary})
-			create("UICorner", {Parent = fill, CornerRadius = UDim.new(0,6)})
-			local numBox = create("TextBox", {Parent = modal, Size = UDim2.new(0, 46, 0, 18), Position = UDim2.new(0, 298, 0, y), BackgroundColor3 = Theme.Secondary, Text = tostring(default), Font = Enum.Font.Gotham, TextSize = 12, TextColor3 = Theme.Text})
-			create("UICorner", {Parent = numBox, CornerRadius = UDim.new(0,6)})
-			local dragging = false
-			bar.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging = true end end)
-			bar.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging = false end end)
-			UserInputService.InputChanged:Connect(function(i)
-				if dragging and i.UserInputType==Enum.UserInputType.MouseMovement then
-					local rel = clamp((i.Position.X - bar.AbsolutePosition.X)/bar.AbsoluteSize.X, 0, 1)
-					fill.Size = UDim2.new(rel,0,1,0)
-					numBox.Text = tostring(math.floor(rel*255))
-				end
-			end)
-			return {Label=lbl, Bar=bar, Fill=fill, Num=numBox}
-		end
-		local sliders = {}
-		sliders.R = newSlider("R", 44, math.floor(Theme.Primary.R*255))
-		sliders.G = newSlider("G", 78, math.floor(Theme.Primary.G*255))
-		sliders.B = newSlider("B", 112, math.floor(Theme.Primary.B*255))
-		local applyBtn = create("TextButton", {Parent = modal, Size = UDim2.new(0, 110, 0, 34), Position = UDim2.new(1, -126, 1, -42), BackgroundColor3 = Theme.Primary, Text = "Apply", Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = Color3.fromRGB(255,255,255)})
-		create("UICorner", {Parent = applyBtn, CornerRadius = UDim.new(0,6)})
-		applyBtn.MouseButton1Click:Connect(function()
-			local r = tonumber(sliders.R.Num.Text) or math.floor(Theme.Primary.R*255)
-			local g = tonumber(sliders.G.Num.Text) or math.floor(Theme.Primary.G*255)
-			local b = tonumber(sliders.B.Num.Text) or math.floor(Theme.Primary.B*255)
-			Theme.Primary = Color3.fromRGB(clamp(math.floor(r),0,255), clamp(math.floor(g),0,255), clamp(math.floor(b),0,255))
-			Window.ApplyTheme(Theme)
-			modal:Destroy()
-		end)
-		local closeX = create("TextButton", {Parent = modal, Size = UDim2.new(0, 28, 0, 28), Position = UDim2.new(1, -36, 0, 6), BackgroundTransparency = 1, Text = "✕", Font = Enum.Font.GothamBold, TextSize = 16, TextColor3 = Theme.Text})
-		closeX.MouseButton1Click:Connect(function() modal:Destroy() end)
-		return modal
+	function WindowAPI:Notify(message, duration)
+		return CreateNotify(screen, message, duration)
 	end
 
-	return Window
+	-- expose apply theme live
+	function WindowAPI:ApplyTheme(newTheme)
+		if not newTheme then return end
+		theme = newTheme
+		main.BackgroundColor3 = theme.Background
+		header.BackgroundColor3 = theme.Secondary
+		titleLbl.TextColor3 = theme.Text
+		resizer.BackgroundColor3 = theme.Primary
+		underline.BackgroundColor3 = theme.Primary
+		for _,c in ipairs(sidebar:GetChildren()) do if c:IsA("TextButton") then c.TextColor3 = theme.Text end end
+	end
+
+	-- return window API
+	return WindowAPI
 end
 
--- ====== EXPORT (use by require or inline)
--- We'll build a demo window immediately for convenience.
+-- Build demo GUI automatically
 local UI = FluentWindUI
+local win = UI:CreateWindow({Title = "⚡ FluentWindUI Pro+ Demo", Size = UDim2.new(0, 920, 0, 600)})
 
-local win = UI:CreateWindow({Title = "⚡ FluentWindUI - Full Demo", Size = UDim2.new(0, 840, 0, 560)})
--- Create tabs and populate controls
-local tabMain = win:CreateTab("Main", "⚡")
-tabMain:AddLabel("Welcome! Đây là demo FluentWindUI (full).")
-tabMain:AddSpacer(6)
-tabMain:AddButton("Nút test", function() warn("Bạn vừa bấm nút test!") end)
-tabMain:AddSpacer(6)
-local tog = tabMain:AddToggle("Bật Auto", false, function(v) warn("Toggle:", v) end)
-tabMain:AddSpacer(6)
-tabMain:AddSlider("Âm lượng", 0, 100, 30, function(v) warn("Volume:", v) end)
-tabMain:AddSpacer(8)
-tabMain:AddTextbox("Nhập tên...", function(txt) warn("Textbox:", txt) end)
-tabMain:AddSpacer(6)
-tabMain:AddDropdown("Chọn món", {"Táo","Chuối","Cam"}, function(v) warn("Chọn:", v) end)
+-- Create tabs and controls
+local mainTab = win:CreateTab("Home", "🏠")
+mainTab:AddLabel("Welcome to FluentWindUI Pro+")
+mainTab:AddSpacer(6)
+mainTab:AddButton("Show Notification", function() win:Notify("This is a fluent-style notification — auto hide in 3s", 3) end)
+mainTab:AddSpacer(6)
+mainTab:AddToggle("Enable Awesome Mode", false, function(v) warn("Awesome Mode:", v) end)
+mainTab:AddSpacer(6)
+mainTab:AddSlider("Volume", 0, 100, 40, function(v) warn("Volume:", v) end)
+mainTab:AddSpacer(8)
+mainTab:AddTextbox("Enter your name...", function(txt) warn("Name entered:", txt) end)
+mainTab:AddSpacer(8)
+mainTab:AddDropdown("Select Fruit", {"Apple","Banana","Orange"}, function(v) warn("Selected:", v) end)
+mainTab:AddSpacer(8)
+mainTab:AddColorPicker("Pick Accent Color", DefaultTheme.Primary, function(c) win:ApplyTheme({Background = DefaultTheme.Background, Secondary = DefaultTheme.Secondary, Primary = c, Accent = DefaultTheme.Accent, Text = DefaultTheme.Text}) end)
+mainTab:AddSpacer(10)
+mainTab:AddParagraph("About FluentWindUI", "FluentWindUI Pro+ is a polished GUI framework designed to be visually modern (glassmorphism + soft shadows) and functionally complete. Components are animated and responsive. Use for tools, hubs, or admin panels.")
 
-local tabSettings = win:CreateTab("Settings", "⚙️")
-tabSettings:AddLabel("Tùy chỉnh theme")
-tabSettings:AddSpacer(6)
-tabSettings:AddButton("Mở Theme Editor", function() win:OpenThemeEditor() end)
-tabSettings:AddSpacer(6)
-tabSettings:AddButton("Preset: Purple", function()
-	win.ApplyTheme({Primary = Color3.fromRGB(150, 90, 255), Accent = Color3.fromRGB(255,170,0), Background = Color3.fromRGB(20,20,28), Secondary = Color3.fromRGB(38,38,48), Text = Color3.fromRGB(240,240,255)})
+local setTab = win:CreateTab("Settings", "⚙️")
+setTab:AddLabel("Appearance")
+setTab:AddSpacer(6)
+setTab:AddButton("Open Theme Editor", function()
+	-- We reuse the Theme editor button in header by simulating click:
+	-- But for demo we show a quick notify:
+	win:Notify("Open Theme Editor from top-left paint icon", 4)
 end)
-tabSettings:AddButton("Preset: Sunset", function()
-	win.ApplyTheme({Primary = Color3.fromRGB(255, 94, 77), Accent = Color3.fromRGB(255,170,0), Background = Color3.fromRGB(28,20,18), Secondary = Color3.fromRGB(44,34,30), Text = Color3.fromRGB(245,235,230)})
-end)
+setTab:AddSpacer(10)
+setTab:AddParagraph("Notes", "This demo implements a full set of controls: Button, Toggle, Slider (drag), Dropdown (tween), Textbox (FocusLost), ColorPicker (sample), Paragraph, and Notifications with auto-dismiss.")
 
--- Default first tab active already (CreateWindow showed first)
--- If you want to persist theme across sessions, implement DataStore or use Player:FindFirstChild("PlayerGui") saving.
+local helpTab = win:CreateTab("Help", "❓")
+helpTab:AddParagraph("Shortcuts", "• Drag the header to move the window.\n• Drag the bottom-right corner to resize.\n• Use the Theme icon to open the color editor.\n• Use 'Show Notification' to see auto-fading notifications.")
 
--- End of script.
+-- End of LocalScript
